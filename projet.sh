@@ -149,4 +149,5 @@ done
 
 # Calcul et affichage du temps écoulé
 end_time=$(date +%s.%s) 
-elapsed_time=$(echo "$end_time - $start_time" | bc
+elapsed_time=$(echo "$end_time - $start_time" | bc)
+echo "Temps écoulé : $elapsed_time secondes"
