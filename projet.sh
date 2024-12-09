@@ -49,6 +49,21 @@ if [ $# -eq 0 ]; then
     exit 1
 fi
 
+# Compilation du programme C
+gcc -o avl_tree avl_tree.c
+if [ $? -ne 0 ]; then
+    echo "Erreur lors de la compilation du programme C."
+    exit 1
+fi
+
+# Vérification de la sortie du programme C
+if [ -e "Temps/avl_output.txt" ]; then
+    echo "Résultats de l'arbre AVL :"
+    cat Temps/avl_output.txt
+else
+    echo "Erreur : Fichier de sortie du programme C introuvable."
+fi
+
 # ORDRE DANS LE DATA.CSV
 # Power plant;HV-B Station;HV-A Station;LV Station;Company;Individual;Capacity;Load
 #  1          2             3           4          5       6          7        8
@@ -73,7 +88,7 @@ for arg in "$@"; do
                     for (station in capacity) {
                         print station ":" capacity[station] ":" consumption[station]
                     }
-                }' Temps/hvb.csv | sort -t':' -k2n > Temps/hvb_comp_final.csv
+                }' Temps/hvb.csv | sort -t':' -k2n > Temps/hvb_comp_final.csv ; 
                 echo "Le calcul pour HVB et Company a été exécuté : Temps/hvb_comp_final.csv"
                 ;;
             -indiv) 
