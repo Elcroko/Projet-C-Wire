@@ -1,5 +1,38 @@
 #!/bin/bash
 
+# Fonction d'aide
+function afficher_aide {
+    echo "Utilisation : ./projet.sh [OPTIONS]"
+    echo "\nOptions disponibles :"
+    echo "  -h           Affiche cette aide et ignore toutes les autres options"
+    echo "  -hvb         Trie les données selon la colonne Station HVB"
+    echo "  -hva         Trie les données selon la colonne Station HVA"
+    echo "  -lv          Trie les données selon la colonne Station LV"
+    echo "  -comp        Exécute un tri et des calculs selon la colonne Company"
+    echo "  -indiv       Exécute un tri et des calculs selon la colonne Individual"
+    echo "  -all         Exécute un tri et des calculs pour tous les clients"
+    echo "\nOrdre des colonnes dans le fichier data.csv :"
+    echo "  1. Power plant"
+    echo "  2. HV-B Station"
+    echo "  3. HV-A Station"
+    echo "  4. LV Station"
+    echo "  5. Company"
+    echo "  6. Individual"
+    echo "  7. Capacity"
+    echo "  8. Load"
+    echo "\nExemples :"
+    echo "  ./projet.sh -hvb"
+    echo "  ./projet.sh -lv -comp"
+    exit 0
+}
+
+# Vérification de l'option -h
+for arg in "$@"; do
+    if [ "$arg" == "-h" ]; then
+        afficher_aide
+    fi
+done
+
 # Cette ligne de commande permet de chercher le fichier data.csv dans mes dossiers
 file_path=$(find .. -iname "data.csv") 2>/dev/null                                                                                      
 
@@ -74,7 +107,7 @@ for arg in "$@"; do
     -hvb) 
         echo "Exécution du tri selon la colonne Station HVB"
         cut -d';' -f2,5,6,7,8 "$file_path" | sort -n -t';' -k1 > Temps/hvb.csv
-        echo "Le tri selon la colonne Station HVB a été exécuté"
+        echo "Fichier 'Temps/hvb.csv' créé avec les données HVB uniquement."
 
         # Lance une nouvelle boucle dans laquelle on regarde un nouvel argument qui peut être l'un des suivants COMPANY / INDIVIDUAL / ALL
         for arg in "$@"; do 
