@@ -4,19 +4,11 @@
 
 // Définition d'un nœud d'un arbre AVL
 typedef struct Node {
-    int key;
-    struct Node* left;
-    struct Node* right;
-    int height;
-} Node;
-
-// Fonction pour obtenir la hauteur d'un nœud
-int height(Node* node) {
-    if (node == NULL) {
-        return 0;
-    }
-    return node->height;
-}
+    int valeur;
+    struct Node* fg;
+    struct Node* fd;
+    int hauteur;
+} AVL;
 
 // Fonction pour obtenir le maximum de deux entiers
 int max(int a, int b) {
@@ -30,187 +22,193 @@ int min(int a, int b) {
 
 // Fonction pour obtenir le maximum de trois entiers
 int max3(int a, int b, int c) {
-    int maxAB = (a > b) ? a : b;  // Trouver le maximum entre `a` et `b`
-    return (maxAB > c) ? maxAB : c;  // Comparer ensuite avec `c`
+    int m = (a > b) ? a : b;  // Trouver le maximum entre `a` et `b`
+    return (m > c) ? m : c;  // Comparer ensuite avec `c`
 }
 
 
 // Fonction pour obtenir le minimum de trois entiers
 int min3(int a, int b, int c) {
-    int minAB = (a < b) ? a : b;  // Trouver le minimum entre `a` et `b`
-    return (minAB < c) ? minAB : c;  // Comparer ensuite avec `c`
+    int mi = (a < b) ? a : b;  // Trouver le minimum entre `a` et `b`
+    return (mi < c) ? mi : c;  // Comparer ensuite avec `c`
 }
 
 
 // Fonction pour créer un nouveau nœud avec une clé donnée
-Node* newNode(int key) {
-    Node* node = (Node*)malloc(sizeof(Node));
-    node->key = key;
-    node->left = node->right = NULL;
-    node->height = 1;  // La hauteur d'un nœud isolé est 1
+AVL* creerAVL(int e) {
+    AVL* node = (AVL*)malloc(sizeof(AVL));
+    node->valeur = e;
+    node->fg = NULL;
+    node->fd = NULL;
+    node->hauteur = 1;  // La hauteur d'un nœud isolé est 1
     return node;
 }
 
 // Rotation droite
-Node* rightRotate(Node* y) {
-    Node* x = y->left;
+AVL* Rotation_D(AVL* a) {
+    AVL* pivot = a->fg;
 
-    int height_y = y->height;
-    int height_x = x->height;
+    int hauteur_a = a->hauteur;
+    int hauteur_pivot = pivot->hauteur;
 
     // Effectuer la rotation
-    y->left = x->right;
-    x->right = y;
+    a->fg = pivot->fd;
+    pivot->fd = a;
 
     // Mise à jour des facteurs d'équilibre
-    y->height = height_y - min(height_x, 0) + 1;  // Facteur d'équilibre de `y` après rotation
-    x->height = max3(height_y + 2, height_y + height_x + 2, height_x + 1);  // Facteur d'équilibre de `x` après rotation
+    a->hauteur = hauteur_a - min(hauteur_pivot, 0) + 1;  // Facteur d'équilibre de `y` après rotation
+    pivot->hauteur = max3(hauteur_a + 2, hauteur_a + hauteur_pivot + 2, hauteur_pivot + 1);  // Facteur d'équilibre de `x` après rotation
 
-    return x;  // Le pivot devient la nouvelle racine
+    return pivot;  // Le pivot devient la nouvelle racine
 }
 
 
 // Rotation gauche
-Node* leftRotate(Node* y) {
-    Node* x = y->right;
+AVL* Rotation_G(AVL* a) {
+    AVL* pivot = a->fd;
 
-    int height_y = y->height;
-    int height_x = x->height;
+    int hauteur_a = a->hauteur;
+    int hauteur_pivot = pivot->hauteur;
 
     // Effectuer la rotation
-    y->right = x->left;
-    x->left = y;
+    a->fd = pivot->fg;
+    pivot->fg = a;
 
     // Mise à jour des facteurs d'équilibre
-    y->height = height_y - max(height_x, 0) - 1;  // Facteur d'équilibre de `y` après rotation
-    x->height = min3(height_y - 2, height_y + height_x - 2, height_x - 1);  // Facteur d'équilibre de `x` après rotation
+    a->hauteur = hauteur_a - max(hauteur_pivot, 0) - 1;  // Facteur d'équilibre de `a` après rotation
+    pivot->hauteur = min3(hauteur_a - 2, hauteur_a + hauteur_pivot - 2, hauteur_pivot - 1);  // Facteur d'équilibre de `pivot` après rotation
 
-    return x;  // Le pivot devient la nouvelle racine
+    return pivot;  // Le pivot devient la nouvelle racine
 }
 
 // doubleRightRotate
-Node* doubleRightRotate(Node* node) {
-    node->left = leftRotate(node->left);  // Rotation gauche sur le sous-arbre gauche
-    return rightRotate(node);  // Puis rotation droite sur le nœud déséquilibré
+AVL* doubleRotation_D(AVL* a) {
+    a->fg = Rotation_G(a->fg);  // Rotation gauche sur le sous-arbre gauche
+    return Rotation_D(a);  // Puis rotation droite sur le nœud déséquilibré
 }
 
 // doubleLeftRotate
-Node* doubleLeftRotate(Node* node) {
-    node->right = rightRotate(node->right);  // Rotation droite sur le sous-arbre droit
-    return leftRotate(node);  // Puis rotation gauche sur le nœud déséquilibré
+AVL* doubleRotation_G(AVL* a) {
+    a->fd = Rotation_D(a->fd);  // Rotation droite sur le sous-arbre droit
+    return Rotation_G(a);  // Puis rotation gauche sur le nœud déséquilibré
 }
 
 // Calcul du facteur d'équilibre d'un nœud
-Node* getBalance(Node* node) {
-    if (node->height >= 2) {
-        if (node->right->height >= 0){
-            return leftRotate(node);
+AVL* equilibre(AVL* a) {
+    if (a->hauteur >= 2) {
+        if (a->fd->hauteur >= 0){
+            return Rotation_G(a);
         }
         else{
-            return doubleLeftRotate(node);
+            return doubleRotation_G(a);
         }
     }
-    else if(node->height <= -2){
-        if (node->left->height <= 0){
-            return rightRotate(node);
+    else if(a->hauteur <= -2){
+        if (a->fg->hauteur <= 0){
+            return Rotation_D(a);
         }
         else{
-            return doubleRightRotate(node);
+            return doubleRotation_D(a);
         }
     }
-    return(node);
+    return(a);
 }
 
 // Fonction d'insertion dans un arbre AVL
-Node* insert(Node* node, int e, int *h) {
-    // 1. Effectuer l'insertion dans l'arbre binaire de recherche standard
-    if (node == NULL) {
+AVL* insertion(AVL* a, int e, int *h) {
+
+    if (a == NULL) {
         *h = 1;
-        return newNode(e);
+        return creerAVL(e);
     }
 
-    if (e < node->key) {
-        node->left = insert(node->left, e, h);
+    if (e < a->valeur) {
+        a->fg = insertion(a->fg, e, h);
         *h = -*h;
-    } else if (e > node->key) {
-        node->right = insert(node->right, e, h);
+    } else if (e > a->valeur) {
+        a->fd = insertion(a->fd, e, h);
     } else {
         *h = 0;
-        return node;
+        return a;
     }
 
     if(*h != 0){
-        node->height += *h;
-        node = getBalance(node);
-        *h = (node->height == 0) ? 0 : 1; // MAJ de la hauteur
+        a->hauteur += *h;
+        a = equilibre(a);
+        if (a->hauteur == 0){
+            *h = 0;
+        } 
+        else{
+            *h = 1; // MAJ de la hauteur
+        }
     }
-    return node;
+    return a;
 }
 
 // Fonction pour effectuer une recherche dans l'arbre AVL
-Node* search(Node* root, int key) {
+AVL* recherche(AVL* a, int e) {
     // Si la clé est trouvée ou si l'arbre est vide
-    if (root == NULL || root->key == key) {
-        return root;
+    if (a == NULL || a->valeur == e) {
+        return a;
     }
 
     // Si la clé est plus petite que la racine, elle se trouve dans le sous-arbre gauche
-    if (key < root->key) {
-        return search(root->left, key);
+    if (e < a->valeur) {
+        return recherche(a->fg, e);
     }
 
     // Sinon, la clé est dans le sous-arbre droit
-    return search(root->right, key);
+    return recherche(a->fd, e);
 }
 
-// Fonction pour afficher un arbre AVL en ordre (in-order traversal)
-void inorder(Node* root) {
-    if (root != NULL) {
-        inorder(root->left);
-        printf("%d ", root->key);
-        inorder(root->right);
+// Fonction pour afficher un arbre AVL en parcours infixe
+void infixe(AVL* a) {
+    if (a != NULL) {
+        infixe(a->fg);
+        printf("%d ", a->valeur);
+        infixe(a->fd);
     }
 }
 
 // Fonction pour lire un fichier CSV et insérer les données dans un arbre AVL
-Node* readCSVAndInsert(Node* root, const char* file_path) {
+AVL* InsererCSV(AVL* a, const char* file_path) {
     FILE* file = fopen(file_path, "r");
     if (file == NULL) {
         printf("Erreur : Impossible d'ouvrir le fichier %s.\n", file_path);
-        return root;
+        return a;
     }
 
     char line[256];
     while (fgets(line, sizeof(line), file)) {
-        int key;
+        int valeur;
         // Lire la clé (par exemple, première colonne) dans chaque ligne
-        if (sscanf(line, "%d", &key) == 1) {
+        if (sscanf(line, "%d", &valeur) == 1) {
             int h = 0;
-            root = insert(root, key, &h);
+            a = insertion(a, valeur, &h);
         }
     }
     fclose(file);
-    return root;
+    return a;
 }
 
 
 // Fonction pour écrire un arbre AVL dans un fichier CSV en ordre croissant
-void writeTreeToCSV(Node* root, FILE* file) {
-    if (root != NULL) {
-        writeTreeToCSV(root->left, file);
-        fprintf(file, "%d\n", root->key);  // Remplacez par les colonnes nécessaires
-        writeTreeToCSV(root->right, file);
+void Ecrire_AVL_CSV(AVL* a, FILE* file) {
+    if (a != NULL) {
+        Ecrire_AVL_CSV(a->fg, file);
+        fprintf(file, "%d\n", a->valeur);  // Remplacez par les colonnes nécessaires
+        Ecrire_AVL_CSV(a->fd, file);
     }
 }
 
 // Fonction principale pour écrire dans un fichier CSV
-void exportTreeToCSV(Node* root, const char* output_path) {
+void Ecrire_CSV(AVL* a, const char* output_path) {
     FILE* file = fopen(output_path, "w");
     if (file == NULL) {
         printf("Erreur : Impossible d'écrire dans le fichier %s.\n", output_path);
         return;
     }
-    writeTreeToCSV(root, file);
+    Ecrire_AVL_CSV(a, file);
     fclose(file);
     printf("Arbre AVL exporté dans le fichier %s.\n", output_path);
 }
@@ -218,15 +216,15 @@ void exportTreeToCSV(Node* root, const char* output_path) {
 
 
 int main() {
-    Node* root = NULL;
+    AVL* a = NULL;
 
     // Lire les données d'un fichier CSV et les insérer dans l'arbre AVL
     const char* input_csv = "data.csv";
-    root = readCSVAndInsert(root, input_csv);
+    a = InsererCSV(a, input_csv);
 
     // Exporter l'arbre AVL trié dans un nouveau fichier CSV
     const char* output_csv = "sorted_data.csv";
-    exportTreeToCSV(root, output_csv);
+    Ecrire_CSV(a, output_csv);
 
     printf("Tri terminé. Données exportées dans %s.\n", output_csv);
 
