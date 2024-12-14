@@ -4,19 +4,20 @@
 
 // Définition d'un nœud d'un arbre AVL
 typedef struct Node {
-    int valeur;
+    int capacite;
+    int consommation;
     struct Node* fg;
     struct Node* fd;
     int hauteur;
 } AVL;
 
 // Fonction pour obtenir le maximum de deux entiers
-int max(int a, int b) {
+int Max(int a, int b) {
     return (a > b) ? a : b;
 }
 
 // Fonction pour obtenir le mnimum de deux entiers
-int min(int a, int b) {
+int Min(int a, int b) {
     return (a < b) ? a : b;
 }
 
@@ -29,19 +30,20 @@ int max3(int a, int b, int c) {
 
 // Fonction pour obtenir le minimum de trois entiers
 int min3(int a, int b, int c) {
-    int mi = (a < b) ? a : b;  // Trouver le minimum entre `a` et `b`
-    return (mi < c) ? mi : c;  // Comparer ensuite avec `c`
+    int m = (a < b) ? a : b;  // Trouver le minimum entre `a` et `b`
+    return (m < c) ? m : c;  // Comparer ensuite avec `c`
 }
 
 
 // Fonction pour créer un nouveau nœud avec une clé donnée
-AVL* creerAVL(int e) {
-    AVL* node = (AVL*)malloc(sizeof(AVL));
-    node->valeur = e;
-    node->fg = NULL;
-    node->fd = NULL;
-    node->hauteur = 1;  // La hauteur d'un nœud isolé est 1
-    return node;
+AVL* creerNoeud(int capa, int conso) {
+    AVL* noeud = (AVL*)malloc(sizeof(AVL));
+    noeud->capacite = capa;
+    noeud->consommation = conso;
+    noeud->fg = NULL;
+    noeud->fd = NULL;
+    noeud->hauteur = 1;  
+    return noeud;
 }
 
 // Rotation droite
@@ -56,7 +58,7 @@ AVL* Rotation_D(AVL* a) {
     pivot->fd = a;
 
     // Mise à jour des facteurs d'équilibre
-    a->hauteur = hauteur_a - min(hauteur_pivot, 0) + 1;  // Facteur d'équilibre de `y` après rotation
+    a->hauteur = hauteur_a - Min(hauteur_pivot, 0) + 1;  // Facteur d'équilibre de `y` après rotation
     pivot->hauteur = max3(hauteur_a + 2, hauteur_a + hauteur_pivot + 2, hauteur_pivot + 1);  // Facteur d'équilibre de `x` après rotation
 
     return pivot;  // Le pivot devient la nouvelle racine
@@ -75,7 +77,7 @@ AVL* Rotation_G(AVL* a) {
     pivot->fg = a;
 
     // Mise à jour des facteurs d'équilibre
-    a->hauteur = hauteur_a - max(hauteur_pivot, 0) - 1;  // Facteur d'équilibre de `a` après rotation
+    a->hauteur = hauteur_a - Max(hauteur_pivot, 0) - 1;  // Facteur d'équilibre de `a` après rotation
     pivot->hauteur = min3(hauteur_a - 2, hauteur_a + hauteur_pivot - 2, hauteur_pivot - 1);  // Facteur d'équilibre de `pivot` après rotation
 
     return pivot;  // Le pivot devient la nouvelle racine
@@ -115,18 +117,18 @@ AVL* equilibre(AVL* a) {
 }
 
 // Fonction d'insertion dans un arbre AVL
-AVL* insertion(AVL* a, int e, int *h) {
+AVL* insertion(AVL* a, int capa, int conso, int *h) {
 
     if (a == NULL) {
         *h = 1;
-        return creerAVL(e);
+        return creerNoeud(capa, conso);
     }
 
-    if (e < a->valeur) {
-        a->fg = insertion(a->fg, e, h);
+    if (capa < a->capacite) {
+        a->fg = insertion(a->fg, capa, conso, h);
         *h = -*h;
-    } else if (e > a->valeur) {
-        a->fd = insertion(a->fd, e, h);
+    } else if (capa > a->capacite) {
+        a->fd = insertion(a->fd, capa, conso, h);
     } else {
         *h = 0;
         return a;
@@ -145,89 +147,68 @@ AVL* insertion(AVL* a, int e, int *h) {
     return a;
 }
 
-// Fonction pour effectuer une recherche dans l'arbre AVL
-AVL* recherche(AVL* a, int e) {
-    // Si la clé est trouvée ou si l'arbre est vide
-    if (a == NULL || a->valeur == e) {
-        return a;
-    }
-
-    // Si la clé est plus petite que la racine, elle se trouve dans le sous-arbre gauche
-    if (e < a->valeur) {
-        return recherche(a->fg, e);
-    }
-
-    // Sinon, la clé est dans le sous-arbre droit
-    return recherche(a->fd, e);
-}
-
-// Fonction pour afficher un arbre AVL en parcours infixe
-void infixe(AVL* a) {
+// Exporter l'arbre AVL trié dans un fichier
+void exporterAVL(AVL* a, FILE* fichier) {
     if (a != NULL) {
-        infixe(a->fg);
-        printf("%d ", a->valeur);
-        infixe(a->fd);
+        exporterAVL(a->fg, fichier);
+        fprintf(fichier, "%d:%d\n", a->capacite, a->consommation);
+        exporterAVL(a->fd, fichier);
     }
 }
 
 // Fonction pour lire un fichier CSV et insérer les données dans un arbre AVL
-AVL* InsererCSV(AVL* a, const char* file_path) {
-    FILE* file = fopen(file_path, "r");
-    if (file == NULL) {
-        printf("Erreur : Impossible d'ouvrir le fichier %s.\n", file_path);
-        return a;
+
+AVL* LireEtInsererCSV(AVL* a, const char* chemin_fichier, const char* typeConsommateur) {
+    FILE* fichier = fopen(chemin_fichier, "r");
+    if (fichier == NULL) {
+        printf( "Erreur : Impossible d'ouvrir le fichier %s.\n", chemin_fichier);
+        exit(EXIT_FAILURE);
     }
 
-    char line[256];
-    while (fgets(line, sizeof(line), file)) {
-        int valeur;
-        // Lire la clé (par exemple, première colonne) dans chaque ligne
-        if (sscanf(line, "%d", &valeur) == 1) {
-            int h = 0;
-            a = insertion(a, valeur, &h);
+    char ligne[256];
+    while (fgets(ligne, sizeof(ligne), fichier)) {
+        int capa;
+        int conso;
+        char type[10];
+        if (sscanf(ligne, "%d:%d:%s", &capa, &conso, type) == 3) {
+            if(strcmp(typeConsommateur, "all") == 0 || strcmp(type, typeConsommateur) == 0){
+                int h = 0;
+                a = insertion(a, capa, conso, &h);
+            }
         }
     }
-    fclose(file);
+    fclose(fichier);
     return a;
 }
 
-
-// Fonction pour écrire un arbre AVL dans un fichier CSV en ordre croissant
-void Ecrire_AVL_CSV(AVL* a, FILE* file) {
-    if (a != NULL) {
-        Ecrire_AVL_CSV(a->fg, file);
-        fprintf(file, "%d\n", a->valeur);  // Remplacez par les colonnes nécessaires
-        Ecrire_AVL_CSV(a->fd, file);
+int main(int argc, char* argv[]) {
+    if (argc < 4) {
+        fprintf(stderr, "Usage : %s <fichier_entree> <fichier_sortie> <type_consommateur>\n", argv[0]);
+        return EXIT_FAILURE;
     }
-}
+    
+    const char* fichierEntree = argv[1];
+    const char* fichierSortie = argv[2];
+    const char* typeConsommateur = argv[3];
 
-// Fonction principale pour écrire dans un fichier CSV
-void Ecrire_CSV(AVL* a, const char* output_path) {
-    FILE* file = fopen(output_path, "w");
-    if (file == NULL) {
-        printf("Erreur : Impossible d'écrire dans le fichier %s.\n", output_path);
-        return;
+    AVL* arbre = NULL;
+
+    // Lecture des données à partir d'un fichier CSV
+    const char* fichier_entree = "data.csv";
+    arbre = LireEtInsererCSV(arbre, fichier_entree, typeConsommateur);
+
+    FILE* fichier = fopen(fichierSortie, "w");
+    if (fichier == NULL) {
+        fprintf(stderr, "Erreur : Impossible d'écrire dans le fichier %s.\n", fichierSortie);
+        return EXIT_FAILURE;
     }
-    Ecrire_AVL_CSV(a, file);
-    fclose(file);
-    printf("Arbre AVL exporté dans le fichier %s.\n", output_path);
-}
 
+    exporterAVL(arbre, fichier);
+    fclose(fichier);
 
-
-int main() {
-    AVL* a = NULL;
-
-    // Lire les données d'un fichier CSV et les insérer dans l'arbre AVL
-    const char* input_csv = "data.csv";
-    a = InsererCSV(a, input_csv);
-
-    // Exporter l'arbre AVL trié dans un nouveau fichier CSV
-    const char* output_csv = "sorted_data.csv";
-    Ecrire_CSV(a, output_csv);
-
-    printf("Tri terminé. Données exportées dans %s.\n", output_csv);
-
+    printf("Opération terminée. Données exportées dans %s.\n", fichierSortie);
     return 0;
+    return EXIT_SUCCESS;
 }
+
 
