@@ -73,3 +73,37 @@ function valider_arguments {
         exit 1
     fi
 }
+
+# Préparation des fichiers nécessaires
+function preparer_fichiers {
+    for dir in "Temps" "Graphs"; do
+        if [ -d "$dir" ]; then
+            rm -rf "$dir"/*
+        else
+            mkdir -p "$dir"
+        fi
+    done
+}
+
+# Préparation des données pour une station spécifique
+function preparer_donnees {
+    local station="$1"
+    local file_path="$2"
+
+    echo "Préparation des données pour $station..."
+    case "$station" in
+        hvb)
+            cut -d';' -f2,7,5,6 "$file_path" | awk -F';' '{print $1, $2, $3, $4}' > Temps/hvb_input.txt
+            ;;
+        hva)
+            cut -d';' -f3,7,5,6 "$file_path" | awk -F';' '{print $1, $2, $3, $4}' > Temps/hva_input.txt
+            ;;
+        lv)
+            cut -d';' -f4,7,5,6 "$file_path" | awk -F';' '{print $1, $2, $3, $4}' > Temps/lv_input.txt
+            ;;
+        *)
+            echo "Erreur : Type de station invalide."
+            exit 1
+            ;;
+    esac
+}
