@@ -15,7 +15,7 @@ function afficher_aide {
     echo "\nExemples :"
     echo "  ./c-wire.sh data.csv lv all"
     echo "  ./c-wire.sh data.csv hvb comp"
-    echo "  ./c-wire.sh data.csv lv all minmax"
+    echo "  ./c-wire.sh data.csv lv all min_max"
     echo "  ./c-wire.sh data.csv hva comp centrale1"
     exit 0
 }
@@ -42,6 +42,10 @@ function verifier_et_compiler {
 
 # Fonction pour valider les arguments et afficher une erreur en cas de problème
 function valider_arguments {
+    if [[ "$@" =~ "-h" ]]; then
+        afficher_aide
+    fi
+
     if [ $# -lt 3 ]; then
         echo "Erreur : Paramètres insuffisants. Vous devez fournir au moins le chemin du fichier, le type de station, et le type de consommateur."
         echo "Temps utile de traitement : 0.0 secondes"
@@ -95,17 +99,21 @@ function verifier_dossiers {
 function preparer_donnees {
     local station="$1"
     local file_path="$2"
+    local id_centrale="${3:-}"
 
     echo "Préparation des données pour $station..."
     case "$station" in
         hvb)
-            cut -d';' -f2,7,5,6 "$file_path" | awk -F';' '{print $1, $2, $3, $4}' > Temps/hvb_input.txt
+            cut -d';' -f2,7,5,6 "$file_path" | awk -F';' -v centrale="$id_centrale" \
+                'centrale == "" || $1 == centrale {print $1, $2, $3, $4}' > Temps/hvb_input.txt
             ;;
         hva)
-            cut -d';' -f3,7,5,6 "$file_path" | awk -F';' '{print $1, $2, $3, $4}' > Temps/hva_input.txt
+            cut -d';' -f3,7,5,6 "$file_path" | awk -F';' -v centrale="$id_centrale" \
+                'centrale == "" || $1 == centrale {print $1, $2, $3, $4}' > Temps/hva_input.txt
             ;;
         lv)
-            cut -d';' -f4,7,5,6 "$file_path" | awk -F';' '{print $1, $2, $3, $4}' > Temps/lv_input.txt
+            cut -d';' -f4,7,5,6 "$file_path" | awk -F';' -v centrale="$id_centrale" \
+                'centrale == "" || $1 == centrale {print $1, $2, $3, $4}' > Temps/lv_input.txt
             ;;
         *)
             echo "Erreur : Type de station invalide."
@@ -116,11 +124,49 @@ function preparer_donnees {
     esac
 }
 
+# Ajouter les titres de colonnes aux fichiers de sortie
+function ajouter_titres {
+    local station="$1"
+    local consommateur="$2"
+    local output_file="$3"
+    local id_centrale="${4:-}"
+
+    # Construire le titre de colonne en fonction des cas
+    case "$station" in
+        hvb)
+            echo "Station HV-B:Capacité:Consommation (Entreprises)" > "$output_file"
+            ;;
+        hva)
+            echo "Station HV-A:Capacité:Consommation (Entreprises)" > "$output_file"
+            ;;
+        lv)
+            case "$consommateur" in
+                indiv)
+                    echo "Station LV:Capacité:Consommation (Individuelles)" > "$output_file"
+                    ;;
+                comp)
+                    echo "Station LV:Capacité:Consommation (Entreprises)" > "$output_file"
+                    ;;
+                all)
+                    if [ "$id_centrale" == "min_max" ]; then
+                        # Cas particulier pour lv all minmax
+                        echo "Min and Max 'capacity-load' extreme nodes" > "$output_file"
+                        echo "Station LV:Capacité:Consommation (Tous):Différence" >> "$output_file"
+                    else
+                        echo "Station LV:Capacité:Consommation (Tous)" > "$output_file"
+                    fi
+                    ;;
+            esac
+            ;;
+    esac
+}
+
 
 # Exécution du programme C
 function executer_programme_c {
     local station="$1"
     local consommateur="$2"
+    local id_centrale="${3:-}"
 
     echo "Exécution du programme C pour $station..."
     local start_time=$(date +%s.%s) # Heure de début
@@ -147,29 +193,63 @@ function executer_programme_c {
     fi
 }
 
+# Traitement spécial pour lv all min_max
+function traitement_lv_all_minmax {
+    echo "Traitement supplémentaire : lv all min_max"
+    local input_file="tmp/lv_output.txt"
+    local minmax_file="tmp/lv_minmax_output.txt"
+    local temp_sorted_file="Temps/lv_diff_sorted.txt"
+
+    if [ ! -f "$input_file" ]; then
+        echo "Erreur : Fichier d'entrée '$input_file' introuvable. Assurez-vous que le traitement initial a été effectué."
+        exit 1
+    fi
+
+    # Calcul des différences et tri des résultats
+    awk -F':' 'NR > 1 { diff = $2 - $3; print $0 ":" diff }' "$input_file" | sort -t':' -k5,5n > "$minmax_file"
+    
+    # Ajouter les titres au fichier minmax
+    ajouter_titres "lv" "all" "$minmax_file" "min_max"
+
+    # Extraction des 10 postes avec le moins de consommation (sans la colonne différence)
+    head -n 10 "$temp_sorted_file" | cut -d':' -f1-4 >> "$minmax_file"
+
+    # Extraction des 10 postes avec le plus de consommation (sans la colonne différence)
+    tail -n 10 "$temp_sorted_file" | cut -d':' -f1-4 >> "$minmax_file"
+
+    # Suppression des fichiers intermédiaires
+    rm -f "Temps/lv_diff_sorted.txt"
+
+    echo "Fichier contenant les postes extrêmes généré : $minmax_file"
+}
 
 # Boucle pour traiter les arguments
 function boucle_traitement {
     local chemin_csv="$1"
     local consommateur="$2"
-    shift 2 # On ignore les deux premiers arguments déjà utilisés
+    local id_centrale="${3:-}"
+    shift 3 # On ignore les trois premiers arguments déjà utilisés
     
     for station in "$@"; do
         case "$station" in
             -hvb)
-                preparer_donnees "hvb" "$chemin_csv"
-                executer_programme_c "hvb" "$type_consommateur"
+                preparer_donnees "hvb" "$chemin_csv" "$id_centrale"
+                executer_programme_c "hvb" "$type_consommateur" "$id_centrale"
                 ;;
             -hva)
-                preparer_donnees "hva" "$chemin_csv"
-                executer_programme_c "hva" "$type_consommateur"
+                preparer_donnees "hva" "$chemin_csv" "$id_centrale"
+                executer_programme_c "hva" "$type_consommateur" "$id_centrale"
                 ;;
             -lv)
-                preparer_donnees "lv" "$chemin_csv"
-                executer_programme_c "lv" "$type_consommateur"
+                preparer_donnees "lv" "$chemin_csv" "$id_centrale"
+                executer_programme_c "lv" "$type_consommateur" "$id_centrale"
+                
+                if [ "$consommateur" == "all" ] && [[ "$@" =~ "min_max" ]]; then
+                    traitement_lv_all_minmax
+                fi
                 ;;
             *)
-                echo "Option non reconnue : $arg"
+                echo "Option non reconnue : $station"
                 echo "Temps utile de traitement : 0.0 secondes"
                 afficher_aide
                 ;;
@@ -190,6 +270,6 @@ id_centrale="${4:-}"
 
 verifier_et_compiler
 verifier_dossiers
-boucle_traitement "$chemin_csv" "$type_consommateur" "$type_station"
+boucle_traitement "$chemin_csv" "$type_consommateur" "$type_station" "$option_min_max"
 
 echo "Script terminé."
