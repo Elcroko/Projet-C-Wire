@@ -20,19 +20,23 @@ function afficher_aide {
     exit 0
 }
 
-# Vérifier si l'exécutable C existe, sinon compiler
+
+# Vérification et compilation de l'exécutable C
 function verifier_et_compiler {
     local executable="avl_tree"
     local source="avl_tree.c"
 
     if [ ! -f "$executable" ]; then
-        echo "Compilation du programme C..."
+        echo "L'exécutable C '$executable' est introuvable. Compilation en cours..."
         gcc -o "$executable" "$source"
         if [ $? -ne 0 ]; then
-            echo "Erreur : La compilation du programme C a échoué. Vérifiez le code source."
-            echo "Temps utile de traitement : 0.0 secondes"
+            echo "Erreur : La compilation du programme C a échoué. Vérifiez le fichier source $source."
             exit 1
+        else
+            echo "Compilation réussie. L'exécutable '$executable' est prêt."
         fi
+    else
+        echo "L'exécutable C '$executable' est déjà présent."
     fi
 }
 
@@ -40,46 +44,48 @@ function verifier_et_compiler {
 function valider_arguments {
     if [ $# -lt 3 ]; then
         echo "Erreur : Paramètres insuffisants. Vous devez fournir au moins le chemin du fichier, le type de station, et le type de consommateur."
-        afficher_aide
         echo "Temps utile de traitement : 0.0 secondes"
+        afficher_aide
         exit 1
     fi
 
     if [ ! -f "$1" ]; then
         echo "Erreur : Le fichier '$1' est introuvable ou inaccessible."
-        afficher_aide
         echo "Temps utile de traitement : 0.0 secondes"
+        afficher_aide
         exit 1
     fi
 
     if [[ ! "$2" =~ ^(hvb|hva|lv)$ ]]; then
         echo "Erreur : Type de station invalide. Les valeurs acceptées sont : hvb, hva, lv."
-        afficher_aide
         echo "Temps utile de traitement : 0.0 secondes"
+        afficher_aide
         exit 1
     fi
 
     if [[ ! "$3" =~ ^(comp|indiv|all)$ ]]; then
         echo "Erreur : Type de consommateur invalide. Les valeurs acceptées sont : comp, indiv, all."
-        afficher_aide
         echo "Temps utile de traitement : 0.0 secondes"
+        afficher_aide
         exit 1
     fi
 
     if ([ "$2" == "hvb" ] || [ "$2" == "hva" ]) && ([ "$3" == "all" ] || [ "$3" == "indiv" ]); then
         echo "Erreur : Les options '$2 $3' sont interdites. Seules les entreprises sont connectées aux stations HV-B et HV-A."
-        afficher_aide
         echo "Temps utile de traitement : 0.0 secondes"
+        afficher_aide
         exit 1
     fi
 }
 
-# Préparation des fichiers nécessaires
-function preparer_fichiers {
+# Vérification/création des dossiers tmp et graphs
+function verifier_dossiers {
     for dir in "Temps" "Graphs"; do
         if [ -d "$dir" ]; then
+            echo "Le répertoire '$dir' existe déjà. Vidage en cours..."
             rm -rf "$dir"/*
         else
+            echo "Le répertoire '$dir' n'existe pas. Création en cours..."
             mkdir -p "$dir"
         fi
     done
@@ -103,7 +109,87 @@ function preparer_donnees {
             ;;
         *)
             echo "Erreur : Type de station invalide."
+            echo "Temps utile de traitement : 0.0 secondes"
+            afficher_aide
             exit 1
             ;;
     esac
 }
+
+
+# Exécution du programme C
+function executer_programme_c {
+    local station="$1"
+    local consommateur="$2"
+
+    echo "Exécution du programme C pour $station..."
+    local start_time=$(date +%s.%s) # Heure de début
+    ./avl_tree "Temps/${station}_input.txt" "Temps/${station}_output.txt" "$consommateur"
+
+    local end_time=$(date +%s.%N)   # Heure de fin
+    local elapsed_time=$(echo "$end_time - $start_time" | bc) # Calcul du temps écoulé
+
+    if [ $? -ne 0 ]; then
+        echo "Erreur : Échec du traitement dans le programme C pour $station."
+        echo "Temps utile pour $station : 0.0 secondes"
+        afficher_aide
+        exit 1
+    fi
+
+    if [ -s "Temps/${station}_output.txt" ]; then
+        echo "Résultats pour $station disponibles dans Temps/${station}_output.txt."
+        echo "Temps utile pour $station : $elapsed_time secondes"
+    else
+        echo "Erreur : Aucune donnée produite pour $station."
+        echo "Temps utile pour $station : 0.0 secondes"
+        afficher_aide
+        exit 1
+    fi
+}
+
+
+# Boucle pour traiter les arguments
+function boucle_traitement {
+    local chemin_csv="$1"
+    local consommateur="$2"
+    shift 2 # On ignore les deux premiers arguments déjà utilisés
+    
+    for station in "$@"; do
+        case "$station" in
+            -hvb)
+                preparer_donnees "hvb" "$chemin_csv"
+                executer_programme_c "hvb" "$type_consommateur"
+                ;;
+            -hva)
+                preparer_donnees "hva" "$chemin_csv"
+                executer_programme_c "hva" "$type_consommateur"
+                ;;
+            -lv)
+                preparer_donnees "lv" "$chemin_csv"
+                executer_programme_c "lv" "$type_consommateur"
+                ;;
+            *)
+                echo "Option non reconnue : $arg"
+                echo "Temps utile de traitement : 0.0 secondes"
+                afficher_aide
+                ;;
+        esac
+    done
+}
+
+if [[ "$@" =~ "-h" ]]; then
+    afficher_aide
+    exit 0
+fi
+
+valider_arguments "$@"
+chemin_csv="$1"
+type_station="$2"
+type_consommateur="$3"
+id_centrale="${4:-}"
+
+verifier_et_compiler
+verifier_dossiers
+boucle_traitement "$chemin_csv" "$type_consommateur" "$type_station"
+
+echo "Script terminé."
