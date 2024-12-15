@@ -24,11 +24,10 @@ function afficher_aide {
 # Vérification et compilation de l'exécutable C
 function verifier_et_compiler {
     local executable="avl_tree"
-    local source="avl_tree.c"
 
     if [ ! -f "$executable" ]; then
         echo "L'exécutable C '$executable' est introuvable. Compilation en cours..."
-        gcc -o "$executable" "$source"
+        make
         if [ $? -ne 0 ]; then
             echo "Erreur : La compilation du programme C a échoué. Vérifiez le fichier source $source."
             exit 1
