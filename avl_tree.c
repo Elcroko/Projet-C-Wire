@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+// ???? #include <stdint.h>  // Pour les types uint16_t, uint32_t, etc.
 
 // Définition d'un nœud d'un arbre AVL
 typedef struct Node {
+    int id_station;
     int capacite;
     int consommation;
     struct Node* fg;
@@ -36,8 +38,9 @@ int min3(int a, int b, int c) {
 
 
 // Fonction pour créer un nouveau nœud avec une clé donnée
-AVL* creerNoeud(int capa, int conso) {
+AVL* creerNoeud(int id_sta, int capa, int conso) {
     AVL* noeud = (AVL*)malloc(sizeof(AVL));
+    noeud->id_station = id_sta;
     noeud->capacite = capa;
     noeud->consommation = conso;
     noeud->fg = NULL;
@@ -117,19 +120,22 @@ AVL* equilibre(AVL* a) {
 }
 
 // Fonction d'insertion dans un arbre AVL
-AVL* insertion(AVL* a, int capa, int conso, int *h) {
+AVL* insertion(AVL* a, int id_sta, int capa, int conso, int *h) {
 
     if (a == NULL) {
         *h = 1;
-        return creerNoeud(capa, conso);
+        return creerNoeud(id_sta, capa, conso);
     }
 
-    if (capa < a->capacite) {
-        a->fg = insertion(a->fg, capa, conso, h);
+    if (id_sta < a->id_station) {
+        a->fg = insertion(a->fg, id_sta, capa, conso, h);
         *h = -*h;
-    } else if (capa > a->capacite) {
-        a->fd = insertion(a->fd, capa, conso, h);
+    } else if (id_sta > a->id_station) {
+        a->fd = insertion(a->fd, id_sta, capa, conso, h);
     } else {
+
+        a->capacite += capa;
+        a->consommation += conso;
         *h = 0;
         return a;
     }
@@ -166,19 +172,40 @@ AVL* LireEtInsererCSV(AVL* a, const char* chemin_fichier, const char* typeConsom
     }
 
     char ligne[256];
+
     while (fgets(ligne, sizeof(ligne), fichier)) {
+        int id_sta;
         int capa;
         int conso;
         char type[10];
-        if (sscanf(ligne, "%d:%d:%s", &capa, &conso, type) == 3) {
-            if(strcmp(typeConsommateur, "all") == 0 || strcmp(type, typeConsommateur) == 0){
-                int h = 0;
-                a = insertion(a, capa, conso, &h);
-            }
+
+        // Si la ligne contient un en-tête, passer à la suivante
+        if (strstr(ligne, "Station") != NULL) {
+            printf("En-tête détectée : '%s'. Ignorée.\n", ligne);
+            continue;
+        }
+
+        // Lire l'identifiant de la station, la capacité, la consommation et le type de consommateur
+        if (sscanf(ligne, "%d:%d:%d:%s", &id_sta, &capa, &conso, type) != 4) {
+            fprintf(stderr, "Erreur : Ligne mal formatée. Ignorée.\n");
+            continue;
+        }
+        if(strcmp(typeConsommateur, "all") == 0 || strcmp(type, typeConsommateur) == 0){
+            int h = 0;
+            a = insertion(a, id_sta, capa, conso, &h);
         }
     }
     fclose(fichier);
     return a;
+}
+
+// Fonction pour libérer l'AVL
+void libererAVL(AVL* a) {
+    if (a != NULL) {
+        libererAVL(a->fg);  // Libérer le sous-arbre gauche
+        libererAVL(a->fd);  // Libérer le sous-arbre droit
+        free(a);            // Libérer le nœud courant
+    }
 }
 
 int main(int argc, char* argv[]) {
@@ -197,17 +224,30 @@ int main(int argc, char* argv[]) {
     const char* fichier_entree = "data.csv";
     arbre = LireEtInsererCSV(arbre, fichier_entree, typeConsommateur);
 
-    FILE* fichier = fopen(fichierSortie, "w");
-    if (fichier == NULL) {
-        fprintf(stderr, "Erreur : Impossible d'écrire dans le fichier %s.\n", fichierSortie);
+    if (arbre == NULL) {
+        printf("Aucune donnée valide trouvée.\n");
         return EXIT_FAILURE;
     }
 
+    // Ouverture du fichier de sortie
+    FILE* fichier = fopen(fichierSortie, "w");
+    if (fichier == NULL) {
+        fprintf(stderr, "Erreur : Impossible d'écrire dans le fichier %s.\n", fichierSortie);
+        libererAVL(arbre); // Libération de la mémoire en cas d'échec
+        return EXIT_FAILURE;
+    }
+
+    // Écriture des en-têtes dans le fichier de sortie
+    fprintf(fichier, "Station:Capacité:Consommation\n");
+
+    // Exportation des données de l'AVL dans le fichier de sortie
     exporterAVL(arbre, fichier);
     fclose(fichier);
 
+    // Libération de la mémoire allouée pour l'AVL
+    libererAVL(arbre);
+
     printf("Opération terminée. Données exportées dans %s.\n", fichierSortie);
-    return 0;
     return EXIT_SUCCESS;
 }
 
