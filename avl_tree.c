@@ -1,17 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-// ???? #include <stdint.h>  // Pour les types uint16_t, uint32_t, etc.
-
-// Définition d'un nœud d'un arbre AVL
-typedef struct Node {
-    int id_station;
-    int capacite;
-    int consommation;
-    struct Node* fg;
-    struct Node* fd;
-    int hauteur;
-} AVL;
+#include "avl_tree.h"
 
 // Fonction pour obtenir le maximum de deux entiers
 int Max(int a, int b) {
@@ -25,27 +12,29 @@ int Min(int a, int b) {
 
 // Fonction pour obtenir le maximum de trois entiers
 int max3(int a, int b, int c) {
-    int m = (a > b) ? a : b;  // Trouver le maximum entre `a` et `b`
-    return (m > c) ? m : c;  // Comparer ensuite avec `c`
+    int m = (a > b) ? a : b;  // Trouver le maximum entre a et b
+    return (m > c) ? m : c;  // Comparer ensuite avec c
 }
-
 
 // Fonction pour obtenir le minimum de trois entiers
 int min3(int a, int b, int c) {
-    int m = (a < b) ? a : b;  // Trouver le minimum entre `a` et `b`
-    return (m < c) ? m : c;  // Comparer ensuite avec `c`
+    int m = (a < b) ? a : b;  // Trouver le minimum entre a et b
+    return (m < c) ? m : c;  // Comparer ensuite avec c
 }
 
-
-// Fonction pour créer un nouveau nœud avec une clé donnée
-AVL* creerNoeud(int id_sta, int capa, int conso) {
+// Fonction pour créer un nouveau noeud
+AVL* creerNoeud(int id_sta, long capa, long conso) {
     AVL* noeud = (AVL*)malloc(sizeof(AVL));
+    if (noeud == NULL) {
+    printf( "Erreur : Échec de l'allocation mémoire.\n");
+    exit(EXIT_FAILURE);
+}
     noeud->id_station = id_sta;
     noeud->capacite = capa;
     noeud->consommation = conso;
     noeud->fg = NULL;
     noeud->fd = NULL;
-    noeud->hauteur = 1;  
+    noeud->hauteur = 1;
     return noeud;
 }
 
@@ -61,12 +50,11 @@ AVL* Rotation_D(AVL* a) {
     pivot->fd = a;
 
     // Mise à jour des facteurs d'équilibre
-    a->hauteur = hauteur_a - Min(hauteur_pivot, 0) + 1;  // Facteur d'équilibre de `y` après rotation
-    pivot->hauteur = max3(hauteur_a + 2, hauteur_a + hauteur_pivot + 2, hauteur_pivot + 1);  // Facteur d'équilibre de `x` après rotation
+    a->hauteur = hauteur_a - Min(hauteur_pivot, 0) + 1; // Facteur d'équilibre de a après rotation
+    pivot->hauteur = max3(hauteur_a + 2, hauteur_a + hauteur_pivot + 2, hauteur_pivot + 1);  // Facteur d'équilibre de pivot après rotation
 
     return pivot;  // Le pivot devient la nouvelle racine
 }
-
 
 // Rotation gauche
 AVL* Rotation_G(AVL* a) {
@@ -80,8 +68,8 @@ AVL* Rotation_G(AVL* a) {
     pivot->fg = a;
 
     // Mise à jour des facteurs d'équilibre
-    a->hauteur = hauteur_a - Max(hauteur_pivot, 0) - 1;  // Facteur d'équilibre de `a` après rotation
-    pivot->hauteur = min3(hauteur_a - 2, hauteur_a + hauteur_pivot - 2, hauteur_pivot - 1);  // Facteur d'équilibre de `pivot` après rotation
+    a->hauteur = hauteur_a - Max(hauteur_pivot, 0) - 1;  // Facteur d'équilibre de a après rotation
+    pivot->hauteur = min3(hauteur_a - 2, hauteur_a + hauteur_pivot - 2, hauteur_pivot - 1);  // Facteur d'équilibre de pivot après rotation
 
     return pivot;  // Le pivot devient la nouvelle racine
 }
@@ -119,136 +107,179 @@ AVL* equilibre(AVL* a) {
     return(a);
 }
 
-// Fonction d'insertion dans un arbre AVL
-AVL* insertion(AVL* a, int id_sta, int capa, int conso, int *h) {
-
+// Fonction pour insérer un noeud
+AVL* insertion(AVL* a, int id_sta, long capa, long conso, int* h) {
     if (a == NULL) {
         *h = 1;
         return creerNoeud(id_sta, capa, conso);
     }
-
     if (id_sta < a->id_station) {
         a->fg = insertion(a->fg, id_sta, capa, conso, h);
         *h = -*h;
     } else if (id_sta > a->id_station) {
         a->fd = insertion(a->fd, id_sta, capa, conso, h);
     } else {
-
         a->capacite += capa;
         a->consommation += conso;
         *h = 0;
         return a;
     }
-
-    if(*h != 0){
+    // Mettre à jour la hauteur et équilibrer l'arbre si nécessaire
+    if (*h != 0) {
         a->hauteur += *h;
         a = equilibre(a);
-        if (a->hauteur == 0){
+        if (a->hauteur == 0) {
             *h = 0;
-        } 
-        else{
-            *h = 1; // MAJ de la hauteur
+        } else {
+            *h = 1;
         }
     }
     return a;
-}
-
-// Exporter l'arbre AVL trié dans un fichier
-void exporterAVL(AVL* a, FILE* fichier) {
-    if (a != NULL) {
-        exporterAVL(a->fg, fichier);
-        fprintf(fichier, "%d:%d\n", a->capacite, a->consommation);
-        exporterAVL(a->fd, fichier);
-    }
 }
 
 // Fonction pour lire un fichier CSV et insérer les données dans un arbre AVL
-
-AVL* LireEtInsererCSV(AVL* a, const char* chemin_fichier, const char* typeConsommateur) {
-    FILE* fichier = fopen(chemin_fichier, "r");
+AVL* lireFichierCSV(AVL* a, const char* cheminFichier) {
+    FILE* fichier = fopen(cheminFichier, "r");
     if (fichier == NULL) {
-        printf( "Erreur : Impossible d'ouvrir le fichier %s.\n", chemin_fichier);
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "Erreur : Impossible d'ouvrir le fichier %s.\n", cheminFichier);
+        return NULL;
     }
 
-    char ligne[256];
+    // -------------------
+    // Initialiser les compteurs
+    // -------------------
 
+    // Définir la taille de la ligne lue :
+    //
+    // id_station     : int    = 4  octets
+    // délimiteur     : 1 char = 1  octet
+    // capacité       : long   = 8  octets
+    // délimiteur     : 1 char = 1  octet
+    // consommation   : long   = 8  octets
+    // retour chariot : 2 char = 2  octets
+    // -------------------------------
+    // taille totale requise = 24 octets
+    //*
+
+    char ligne[50]; 
+    int h = 0; // Variable pour suivre l'équilibrage de l'arbre
+
+    // Lire le fichier ligne par ligne
     while (fgets(ligne, sizeof(ligne), fichier)) {
-        int id_sta;
-        int capa;
-        int conso;
-        char type[10];
-
-        // Si la ligne contient un en-tête, passer à la suivante
-        if (strstr(ligne, "Station") != NULL) {
-            printf("En-tête détectée : '%s'. Ignorée.\n", ligne);
+        int id_station; 
+        long capacite, consommation; // Initialisation des variables
+        
+        if (strstr(ligne, "Station") != NULL) { // Ignore l'en-tête
             continue;
         }
-
-        // Lire l'identifiant de la station, la capacité, la consommation et le type de consommateur
-        if (sscanf(ligne, "%d:%d:%d:%s", &id_sta, &capa, &conso, type) != 4) {
-            fprintf(stderr, "Erreur : Ligne mal formatée. Ignorée.\n");
+        // Extraire les donnees du CSV
+        if (sscanf(ligne, "%d:%ld:%ld", &id_station, &capacite, &consommation) != 3) {
+            fprintf(stderr, "Erreur : Ligne mal formatée. Ignorée : %s\n", ligne);
             continue;
         }
-        if(strcmp(typeConsommateur, "all") == 0 || strcmp(type, typeConsommateur) == 0){
-            int h = 0;
-            a = insertion(a, id_sta, capa, conso, &h);
-        }
+        // Insérer les données dans l'arbre AVL
+        a = insertion(a, id_station, capacite, consommation, &h);
     }
     fclose(fichier);
     return a;
 }
 
-// Fonction pour libérer l'AVL
+// Fonction pour libérer la mémoire de l'arbre AVL
 void libererAVL(AVL* a) {
     if (a != NULL) {
-        libererAVL(a->fg);  // Libérer le sous-arbre gauche
-        libererAVL(a->fd);  // Libérer le sous-arbre droit
-        free(a);            // Libérer le nœud courant
+        libererAVL(a->fg);
+        libererAVL(a->fd);
+        free(a);
     }
 }
 
-int main(int argc, char* argv[]) {
-    if (argc < 4) {
-        fprintf(stderr, "Usage : %s <fichier_entree> <fichier_sortie> <type_consommateur>\n", argv[0]);
-        return EXIT_FAILURE;
+void exporterAVL(AVL* arbre, FILE* fichier, char *tampon, size_t *indexTampon, size_t tailleTampon) {
+    if (arbre != NULL) {
+        // Exporter le sous-arbre gauche
+        exporterAVL(arbre->fg, fichier, tampon, indexTampon, tailleTampon);
+
+        // Écrire les données du nœud actuel dans le tampon
+        int tailleEcrite = snprintf(tampon + *indexTampon, tailleTampon - *indexTampon, 
+                                    "%d:%ld:%ld\n", arbre->id_station, arbre->capacite, arbre->consommation);
+        *indexTampon += tailleEcrite; // Mettre à jour l'index du tampon
+
+        // Si le tampon est presque plein, écrire son contenu dans le fichier
+        if (*indexTampon >= tailleTampon - 100) {
+            fwrite(tampon, 1, *indexTampon, fichier); // Écriture dans le fichier
+            *indexTampon = 0; // Réinitialiser l'index du tampon
+        }
+
+        // Exporter le sous-arbre droit
+        exporterAVL(arbre->fd, fichier, tampon, indexTampon, tailleTampon);
     }
-    
-    const char* fichierEntree = argv[1];
-    const char* fichierSortie = argv[2];
-    const char* typeConsommateur = argv[3];
+}
 
-    AVL* arbre = NULL;
 
-    // Lecture des données à partir d'un fichier CSV
-    const char* fichier_entree = "data.csv";
-    arbre = LireEtInsererCSV(arbre, fichier_entree, typeConsommateur);
-
-    if (arbre == NULL) {
-        printf("Aucune donnée valide trouvée.\n");
-        return EXIT_FAILURE;
-    }
-
-    // Ouverture du fichier de sortie
-    FILE* fichier = fopen(fichierSortie, "w");
+void exporterAVLVersCSV(AVL* arbre, const char* cheminFichier, size_t tailleTampon) {
+    // Ouvrir le fichier en mode écriture
+    FILE* fichier = fopen(cheminFichier, "w");
     if (fichier == NULL) {
-        fprintf(stderr, "Erreur : Impossible d'écrire dans le fichier %s.\n", fichierSortie);
-        libererAVL(arbre); // Libération de la mémoire en cas d'échec
+        // Afficher un message d'erreur si le fichier ne peut pas être créé
+        fprintf(stderr, "Erreur : Impossible de créer le fichier %s.\n", cheminFichier);
+        return;
+    }
+
+    // Allouer un tampon pour optimiser les écritures dans le fichier
+    char *tampon = (char *)malloc(tailleTampon);
+    if (tampon == NULL) {
+    fprintf(stderr, "Erreur : Échec de l'allocation mémoire pour le tampon.\n");
+    fclose(fichier);
+    exit(EXIT_FAILURE);
+}
+    size_t indexTampon = 0; // Initialiser l'index du tampon
+
+    // Exporter les données de l'arbre AVL dans le fichier
+    exporterAVL(arbre, fichier, tampon, &indexTampon, tailleTampon);
+
+    // Écrire les données restantes dans le tampon (si non vide)
+    if (indexTampon > 0) {
+        fwrite(tampon, 1, indexTampon, fichier);
+    }
+
+    // Libérer la mémoire du tampon
+    free(tampon);
+
+    // Fermer le fichier
+    fclose(fichier);
+}
+
+
+int main(int argc, char* argv[]) { 
+
+    // Vérifier que le programme reçoit suffisamment d'arguments
+    if (argc < 3) {
+        fprintf(stderr, "Utilisation : %s [fichier_entrée] [fichier_sortie] [taille_tampon]\n", argv[0]);
         return EXIT_FAILURE;
     }
 
-    // Écriture des en-têtes dans le fichier de sortie
-    fprintf(fichier, "Station:Capacité:Consommation\n");
+    // Déclaration de l'arbre AVL et des fichiers d'entrée/sortie
+    AVL* arbre = NULL;
+    const char* cheminFichier = argv[1]; // Chemin du fichier d'entrée
+    const char* fichierSortie = argv[2]; // Chemin du fichier de sortie
 
-    // Exportation des données de l'AVL dans le fichier de sortie
-    exporterAVL(arbre, fichier);
-    fclose(fichier);
+    // Permettre à l'utilisateur de spécifier une taille de tampon
+    // Taille par défaut : 8 Ko (8192 octets) pour les machines 64 bits
+    size_t tailleTampon = (argc >= 4) ? atol(argv[3]) : TAILLE_TAMPON_DEFAUT;
 
-    // Libération de la mémoire allouée pour l'AVL
+    // Lecture du fichier CSV et insertion des données dans l'arbre AVL
+    arbre = lireFichierCSV(arbre, cheminFichier);
+
+    // Vérifier si l'arbre AVL a été correctement rempli
+    if (arbre == NULL) {
+        fprintf(stderr, "Erreur lors du traitement du fichier %s.\n", cheminFichier);
+        return EXIT_FAILURE;
+    }
+
+    // Exporter les données de l'arbre AVL dans un fichier CSV
+    exporterAVLVersCSV(arbre, fichierSortie, tailleTampon);
+
+    // Libérer la mémoire allouée à l'arbre AVL
     libererAVL(arbre);
 
-    printf("Opération terminée. Données exportées dans %s.\n", fichierSortie);
-    return EXIT_SUCCESS;
+    return 0;
 }
-
-
