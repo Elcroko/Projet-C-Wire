@@ -19,7 +19,7 @@
 ├── input/               # Contient les fichiers d'entrée
 ├── tmp/                 # Fichiers temporaires générés pendant l'exécution
 ├── graphs/              # Graphiques générés
-├── tests/              # Résultats des tests et exécutions précédentes
+├── tests/               # Résultats des tests et exécutions précédentes
 
 
 Prérequis
