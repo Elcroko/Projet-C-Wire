@@ -5,10 +5,10 @@ TARGET = avl_tree
 CC = gcc
 
 # Options de compilation
-CFLAGS = -Wall -Wextra -O2
+CFLAGS = -Wall -Wextra -O2 -Iinclude
 
 # Liste des fichiers source
-SRCS = avl_tree.c
+SRCS = avl_operations.o avl_file.o main.o
 
 # Fichiers objets (générés automatiquement à partir des fichiers source)
 OBJS = $(SRCS:.c=.o)
