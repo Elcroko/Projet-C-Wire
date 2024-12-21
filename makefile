@@ -8,7 +8,7 @@ CC = gcc
 CFLAGS = -Wall -Wextra -O2 -Iinclude
 
 # Liste des fichiers source
-SRCS = avl_operations.o avl_file.o main.o
+SRCS = avl_operations.c avl_file.c main.c
 
 # Fichiers objets (générés automatiquement à partir des fichiers source)
 OBJS = $(SRCS:.c=.o)
