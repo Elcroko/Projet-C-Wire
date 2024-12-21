@@ -18,12 +18,12 @@ function afficher_aide {
     echo "  - Dans le cas de lv all min_max le fichier est trié par la valeur croissante de la différence entre la capacité et la consommation." 
 	echo ""
     echo "Exemples :"
-    echo "  ./c-wire.sh data.csv lv all "
-    echo "  ./c-wire.sh data.csv lv comp 1"
-    echo "  ./c-wire.sh data.csv lv indiv 2"
-    echo "  ./c-wire.sh data.csv hvb comp 3"
-    echo "  ./c-wire.sh data.csv hva comp 4"
-    echo "  ./c-wire.sh data.csv lv all min_max"
+    echo "  ./c-wire.sh input/data.csv lv all "
+    echo "  ./c-wire.sh input/data.csv lv comp 1"
+    echo "  ./c-wire.sh input/data.csv lv indiv 2"
+    echo "  ./c-wire.sh input/data.csv hvb comp 3"
+    echo "  ./c-wire.sh input/data.csv hva comp 4"
+    echo "  ./c-wire.sh input/data.csv lv all min_max"
     echo ""
     exit 0
 }
