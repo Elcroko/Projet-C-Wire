@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Fonction d'aide
+# Fonction d'aide pour afficher l'utilisation du script et les options disponibles
 function afficher_aide {
 	echo ""
     echo "Utilisation : ./c-wire.sh <chemin_csv> <type_station> <type_consommateur> [id_centrale] [-h]"
@@ -24,17 +24,19 @@ function afficher_aide {
     echo "  ./c-wire.sh data.csv hvb comp 3"
     echo "  ./c-wire.sh data.csv hva comp 4"
     echo "  ./c-wire.sh data.csv lv all min_max"
+    echo ""
     exit 0
 }
 
 # Vérification et compilation de l'exécutable C
 function verifier_et_compiler {
-    local executable="avl_tree"
+    local executable="avl_tree" # Nom de l'exécutable attendu
 
+    # Vérifier si l'exécutable est déjà présent
     if [ ! -f "$executable" ]; then
 		echo ""
         echo "L'exécutable C '$executable' est introuvable. Compilation en cours..."
-        make
+        make # Lancer la compilation via makefile
         if [ $? -ne 0 ]; then
 			echo ""
             echo "Erreur : La compilation du programme C a échoué. Vérifiez le fichier source $source."
@@ -51,10 +53,11 @@ function verifier_et_compiler {
 
 # Fonction pour valider les arguments et afficher une erreur en cas de problème
 function valider_arguments {
-    if [[ "$@" =~ "-h" ]]; then
+    if [[ "$@" =~ "-h" ]]; then # Afficher l'aide si l'option -h est détectée
         afficher_aide
     fi
 
+    # Vérifier que le nombre d'arguments est suffisant
     if [ $# -lt 3 ]; then
 		echo ""
         echo "Erreur : Paramètres insuffisants. Vous devez fournir au moins le chemin du fichier, le type de station, et le type de consommateur."
@@ -64,6 +67,7 @@ function valider_arguments {
         exit 1
     fi
 
+    # Vérifier que le fichier CSV d'entrée existe
     if [ ! -f "$1" ]; then
 		echo ""
         echo "Erreur : Le fichier '$1' est introuvable ou inaccessible."
@@ -73,6 +77,7 @@ function valider_arguments {
         exit 1
     fi
 
+    # Vérifier si le type de station est valide
     if [[ ! "$2" =~ ^(hvb|hva|lv)$ ]]; then
 		echo ""
         echo "Erreur : Type de station invalide. Les valeurs acceptées sont : hvb, hva, lv."
@@ -82,6 +87,7 @@ function valider_arguments {
         exit 1
     fi
 
+    # Vérifier si le type de consommateur est valide
     if [[ ! "$3" =~ ^(comp|indiv|all)$ ]]; then
 		echo ""
         echo "Erreur : Type de consommateur invalide. Les valeurs acceptées sont : comp, indiv, all."
@@ -91,6 +97,7 @@ function valider_arguments {
         exit 1
     fi
 
+    # Vérifier que certaines combinaisons d'options sont interdites
     if ([ "$2" == "hvb" ] || [ "$2" == "hva" ]) && ([ "$3" == "all" ] || [ "$3" == "indiv" ]); then
 		echo ""
         echo "Erreur : L'option '$2 $3' est interdite. Seules les entreprises sont connectées aux stations HV-B et HV-A."
@@ -100,6 +107,7 @@ function valider_arguments {
         exit 1
     fi
 
+    # Vérifier la validité de l'argument 4 si présent
     if [ -n "$4" ] && [[ ! "$4" =~ ^(1|2|3|4|5|min_max)$ ]]; then
         echo ""
         echo "Erreur : Valeur invalide pour le quatrième argument. Les valeurs acceptées sont : 1, 2, 3, 4, 5, ou min_max."
@@ -116,35 +124,38 @@ function verifier_dossiers {
         if [ -d "$dir" ]; then
 			echo ""
             echo "Le répertoire '$dir' existe déjà. Vidage en cours..."
-            rm -rf "$dir"/*
+            rm -rf "$dir"/* # Vider le dossier si déjà existant
         else
 			echo ""
             echo "Le répertoire '$dir' n'existe pas. Création en cours..."
-            mkdir -p "$dir"
+            mkdir -p "$dir" # Créer le dossier si inexistant
         fi
     done
 }
 
+# Message de bienvenue
 echo "============="
 echo " C-WIRE v1.0 "
 echo "============="
 
+# Validation des arguments passés au script
 valider_arguments "$@"
 
 echo ""
 echo "1 - Initialisation des variables"
 
-# Initialiser les variables
-DONNEES="$1"       # données.csv
-STATION="$2"       # hva, hvb, lv
-ENTREPRISE="$3"    # comp, indiv, all
-CENTRALE="$4"      # 1, 2, 3, 4, 5, minmax
-TEMP="tmp"   # Zone de fichiers temporaires
+# Initialisation des variables principales
+DONNEES="$1"       # Fichier de données d'entrée
+STATION="$2"       # Type de station (hva, hvb, lv)
+ENTREPRISE="$3"    # Type de consommateur (comp, indiv, all)
+CENTRALE="$4"      # Identifiant de la centrale ou "min_max"
+TEMP="tmp"         # Dossier pour les fichiers temporaires
 
+# Vérification de la présence et compilation du programme C
 verifier_et_compiler
 verifier_dossiers
 
-# Fichiers d'entrée/sortie
+# Configuration des fichiers d'entrée et de sortie
 FICHIER_ENTREE="$TEMP/${STATION}_entree.csv"
 
 if [ "$STATION" == "lv" ] && [ "$CENTRALE" == "min_max" ]; then
@@ -157,7 +168,7 @@ else
     fi
 fi
 
-# Supprimer les anciens fichiers
+# Suppression des anciens fichiers temporaires
 if [ -e "$FICHIER_ENTREE" ]; then
     rm "$FICHIER_ENTREE"
 fi
@@ -165,10 +176,10 @@ if [ -e "$FICHIER_SORTIE" ]; then
     rm "$FICHIER_SORTIE"
 fi
 
-# Assurer que le répertoire temporaire existe
+# Créer le dossier temporaire s'il n'existe pas
 mkdir -p "$TEMP"
 
-# Enregistrer l'heure et la date de début
+# Enregistrement de l'heure de début pour mesurer la durée du traitement
 HEURE_DEBUT=$(date +"%Y-%m-%d %H:%M:%S")
 SECONDES_DEBUT=$(date +%s)
 
@@ -282,6 +293,10 @@ else
 
 fi  
 
+# Enregistrer l'heure et la date de fin
+HEURE_FIN=$(date +"%Y-%m-%d %H:%M:%S")
+SECONDES_FIN=$(date +%s)
+
 # Créer un titre dynamique basé sur les variables $STATION et $ENTREPRISE
 TITRE="Station $STATION : Capacité : Consommation($ENTREPRISE)"
 
@@ -291,7 +306,7 @@ echo "$TITRE" > tmp/header.csv
     # Remplacer le fichier de sortie avec le nouveau titre suivi du contenu
 cat tmp/header.csv tmp/body.csv > "$FICHIER_SORTIE"
    
-# on nettoie les fichiers tampons
+# Nettoyage final des fichiers temporaires
 if [ -f "tmp/s1.csv" ]; then
 	rm -f tmp/s1.csv 2>/dev/null
 fi
@@ -318,9 +333,6 @@ else
 	echo "Fichier d'entrée '$FICHIER_ENTREE' introuvable ou déjà supprimé."
 fi
 
-# Enregistrer l'heure et la date de fin
-HEURE_FIN=$(date +"%Y-%m-%d %H:%M:%S")
-SECONDES_FIN=$(date +%s)
 echo ""
 echo "Début du processus : $HEURE_DEBUT"
 echo "Fin du processus   : $HEURE_FIN"
